@@ -30,9 +30,9 @@ input{padding:9px;border-radius:8px;border:1px solid #2f4760;background:var(--pn
 #info{background:var(--pn);padding:10px;border-radius:8px}
 .ib{height:8px;background:#0007;border-radius:4px;overflow:hidden;margin:5px 0}.ib b{display:block;height:100%;background:#4fc37a}
 .st{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:12px;color:var(--mu);margin-top:4px}.st b{color:var(--tx)}
-#opp{display:flex;gap:8px;margin:0 0 6px;align-items:center;color:var(--mu);min-height:38px}#opp button{padding:7px 12px;flex:none}
-#oc{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
-.cb{width:18px;height:26px;border-radius:3px;background:repeating-linear-gradient(45deg,#2f4760,#2f4760 3px,#17283a 3px,#17283a 6px);border:1px solid #4a6580}
+#opp{display:flex;gap:8px;margin:0 0 6px;align-items:center;color:var(--mu);min-height:38px;width:min(94vw,560px)}#opp button{padding:7px 12px;flex:none}
+#oc{display:flex;gap:4px;align-items:center;flex:1;min-width:0;overflow-x:auto;padding-bottom:2px}#oc>span{flex:none;white-space:nowrap}
+.cb{flex:none;width:18px;height:26px;border-radius:3px;background:repeating-linear-gradient(45deg,#2f4760,#2f4760 3px,#17283a 3px,#17283a 6px);border:1px solid #4a6580}
 #bar{display:flex;gap:8px;justify-content:center;padding:6px}
 #hand{display:flex;gap:10px;overflow-x:auto;padding:16px 10px 10px}
 .cd,.eq{--c:var(--l1);--t:var(--t1)}
@@ -45,6 +45,21 @@ input{padding:9px;border-radius:8px;border:1px solid #2f4760;background:var(--pn
 #cv{position:fixed;inset:0;background:#0e1a24f2;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;font-size:22px;text-align:center;padding:20px;z-index:5;animation:cvi .25s .6s backwards}
 @keyframes cvi{from{opacity:0}}
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#000c;padding:9px 16px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
+/* thanh trượt tay bài + khung chat + cửa sổ lệnh */
+#hand,#cl,#ah,#al,#oc{scrollbar-color:#4a6580 #0003}
+#hand::-webkit-scrollbar{height:12px}#hand::-webkit-scrollbar-thumb{background:#4a6580;border-radius:6px}#hand::-webkit-scrollbar-track{background:#0004;border-radius:6px}
+#chat{max-width:760px;margin:6px auto 24px;padding:0 10px}
+#cl{height:150px;overflow-y:auto;background:var(--pn);border:1px solid #2f4760;border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;font-size:13px}
+.cm{word-break:break-word}.cm b{color:#7cc8ff}.cm.op b{color:var(--ac)}.cm.sy{color:var(--mu);font-style:italic}
+#cr{display:flex;gap:8px;margin-top:8px}#ci{flex:1;width:auto;text-transform:none;font-size:16px}
+#adm{position:fixed;inset:0;background:#000b;display:flex;align-items:center;justify-content:center;padding:12px;z-index:4}
+.win{background:var(--bg);border:1px solid #2f4760;border-radius:12px;width:min(96vw,760px);max-height:92vh;max-height:92dvh;display:flex;flex-direction:column;gap:6px;padding:14px;box-shadow:0 10px 40px #000a}
+.wh{display:flex;justify-content:space-between;align-items:center;font-size:18px}.wp{margin:6px 0 0;color:var(--mu);font-weight:600}
+#ah{display:flex;gap:10px;overflow-x:auto;padding:12px 10px 8px;flex:none}
+#af{display:flex;gap:6px;flex-wrap:wrap}#af button{padding:5px 11px;font-size:12px}
+#al{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;overflow-y:auto;padding:8px;min-height:0;flex:1 1 auto}
+.wf{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:6px}#as{color:var(--mu)}
+#adm .cd{min-height:96px}#adm .cd.on{transform:none;box-shadow:0 0 0 3px #fff,0 0 14px var(--c)}
 </style></head><body>
 <div id="menu">
 <h1>♞ Cờ vua maibell</h1>
@@ -61,14 +76,23 @@ input{padding:9px;border-radius:8px;border:1px solid #2f4760;background:var(--pn
 <li>Số ô trang bị: Tốt 2 · Xe, Mã, Tượng 3 · Hậu, Vua 5. Bấm vào quân của mình để xem bảng trạng thái và tháo trang bị. Tháo/gắn lại tuỳ ý trong lượt, chỉ tốn năng lượng ở lần gắn đầu tiên của thẻ đó.</li>
 <li>Trang bị tăng chỉ số theo lượt (Suối Sinh Lực, Hộ Thể) là đồ tiêu hao: gắn vào là không thể tháo, mỗi lượt của chủ quân kích hoạt 1 lần và sẽ vỡ sau số lượt = cấp + 1 (Lv1: 2 lượt · Lv2: 3 · Lv3: 4 · Lv4: 5 · Lv5: 6). Mỗi lần gắn đều tốn năng lượng.</li>
 <li>Tỉ lệ bốc thẻ ngẫu nhiên hoàn toàn: Lv1 50% · Lv2 28% · Lv3 13% · Lv4 6% · Lv5 3%.</li>
-<li>Bài trên tay đối thủ luôn bị ẩn, chỉ lộ khi thẻ được tung ra.</li></ul></details>
+<li>Bài trên tay đối thủ luôn bị ẩn, chỉ lộ khi thẻ được tung ra.</li>
+<li>Số thẻ trên tay không giới hạn (kéo thanh trượt để xem hết). Khung chat dưới bài dùng để nhắn cho đối thủ.</li></ul></details>
 </div>
 <div id="game" hidden>
 <div id="top"></div>
 <div class="main"><div><div id="opp"><button id="bDraw" onclick="send({t:'draw'})">Bốc 1 thẻ</button><span id="oc"></span></div><div id="bd"></div></div>
 <div id="side"><div id="info" hidden></div></div></div>
 <div id="bar"><button class="g" onclick="confirm('Đầu hàng?')&&send({t:'surr'})">Đầu hàng</button></div>
-<div id="hand"></div></div>
+<div id="hand"></div>
+<div id="chat"><div id="cl"></div><div id="cr"><input id="ci" maxlength="200" autocomplete="off" placeholder="Nhắn cho đối thủ…" onkeydown="if(event.key=='Enter'&&!event.isComposing)sendChat()"><button onclick="sendChat()">Gửi</button></div></div></div>
+<div id="adm" hidden onclick="if(event.target==this)closeAdm()"><div class="win">
+<div class="wh"><b>🛠 Skibidi lấy đồ</b><button class="g" onclick="closeAdm()">✕</button></div>
+<p class="wp">① Chọn 1 thẻ trên tay để đổi</p><div id="ah"></div>
+<p class="wp">② Chọn 1 lá bài đỏ (Lv5) muốn nhận</p>
+<div id="af"><button data-k="*" onclick="admF('*')">Tất cả</button><button class="g" data-k="E" onclick="admF('E')">Trang bị</button><button class="g" data-k="P" onclick="admF('P')">Bị động</button><button class="g" data-k="A" onclick="admF('A')">Chủ động</button></div>
+<div id="al"></div>
+<div class="wf"><span id="as"></span><button id="aok" onclick="admOK()" disabled>Đổi thẻ</button></div></div></div>
 <div id="cv" hidden></div><div id="toast"></div>
 <script>
 const $=id=>document.getElementById(id),R=Math.random;
@@ -147,8 +171,10 @@ function endTurn(G,s,d=0){G.b.forEach(p=>{if(p&&p.sd==s&&p.stun)p.stun--});if(s=
 function newGame(){const G={b:Array(64).fill(null),turn:0,round:1,hands:[[],[]],pd:[[],[]],en:[0,0],sk:0,drew:0,win:null};
  'RNBQKBNR'.split('').forEach((t,c)=>{G.b[c]=np(t,1);G.b[56+c]=np(t,0);G.b[8+c]=np('P',1);G.b[48+c]=np('P',0)});
  for(let s=0;s<2;s++){draw(G,s);draw(G,s)}startTurn(G);return G}
-function act(G,s,a){if(G.win!=null)return'Ván đã kết thúc';if(G.turn!=s)return'Chưa tới lượt bạn';
- if(a.t=='draw'){if(G.drew)return'Đã bốc rồi';if(G.hands[s].length>=7)return'Tay bài đã đầy (7)';draw(G,s);G.drew=1}
+function act(G,s,a){if(G.win!=null)return'Ván đã kết thúc';
+ if(a.t=='swap'){const c=DB[a.id];if(!Number.isInteger(a.ci)||G.hands[s][a.ci]==null)return'Không có thẻ này';if(!Number.isInteger(a.id)||!c||c.lv!=5)return'Chỉ đổi được sang bài đỏ (Lv5)';G.hands[s][a.ci]=a.id;return}
+ if(G.turn!=s)return'Chưa tới lượt bạn';
+ if(a.t=='draw'){if(G.drew)return'Đã bốc rồi';draw(G,s);G.drew=1}
  else if(a.t=='move'){const p=G.b[a.from],m=legal(G,a.from).find(x=>x.to==a.to);if(!m||p.sd!=s)return'Nước đi không hợp lệ';
   if(m.k=='m')mv(G,a.from,a.to);else{hit(G,p,G.b[a.to],m.k=='r');reap(G);if(m.k=='a'&&!G.b[a.to]&&G.b[a.from]===p)mv(G,a.from,a.to)}
   reap(G);if(G.win==null)endTurn(G,s)}
@@ -169,7 +195,7 @@ function act(G,s,a){if(G.win!=null)return'Ván đã kết thúc';if(G.turn!=s)re
 /* ===== NetworkRoomManager: host quyết định, khách chỉ gửi ý định; PeerJS (WebRTC + STUN/TURN mặc định) ===== */
 const view=(G,s)=>{const v=JSON.parse(JSON.stringify(G));v.hands=G.hands.map((h,i)=>i==s?h:h.map(()=>-1));return v};
 let peer,conn,mode,me=0,G,W,sel=null,cs=null,tp1=null,cover=false;
-const show=id=>{$('menu').hidden=id!='menu';$('game').hidden=id!='game'},msg=t=>$('msg').textContent=t;
+const show=id=>{$('menu').hidden=id!='menu';$('game').hidden=id!='game';if(id=='game'&&!$('cl').children.length)sys('Chat: tin thường gửi cho đối thủ.')},msg=t=>$('msg').textContent=t;
 function toast(t){const e=$('toast');e.textContent=t;e.style.opacity=1;clearTimeout(toast.h);toast.h=setTimeout(()=>e.style.opacity=0,2200)}
 function mkCode(){const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let c='';for(let i=0;i<5;i++)c+=A[R()*A.length|0];return c}
 function local(){mode='local';G=newGame();W=G;cover=true;show('game');render()}
@@ -179,13 +205,13 @@ function host(){if(typeof Peer=='undefined')return msg('Không tải được th
  peer.on('error',e=>{if(e.type=='unavailable-id')return host();b.disabled=false;msg('Lỗi mạng: '+e.type)});
  peer.on('connection',c=>{if(conn)return c.close();conn=c;
   c.on('open',()=>{mode='host';me=0;G=newGame();show('game');push()});
-  c.on('data',d=>{if(d.t=='a'){const r=act(G,1,d.a);if(r)c.send({t:'e',m:r});push()}});
+  c.on('data',d=>{if(d.t=='a'){const r=act(G,1,d.a);if(r)c.send({t:'e',m:r});push()}else if(d.t=='c')recv(d.m)});
   c.on('close',()=>toast('Đối thủ đã rời phòng'))})}
 function join(){if(typeof Peer=='undefined')return msg('Không tải được thư viện mạng (cần Internet).');
  const code=$('inp').value.trim().toUpperCase();if(!code)return msg('Hãy nhập mã phòng.');msg('Đang kết nối...');peer=new Peer();
  peer.on('open',()=>{conn=peer.connect('maibell-'+code,{reliable:true});
   conn.on('open',()=>{mode='guest';me=1;show('game')});
-  conn.on('data',d=>{if(d.t=='s'){W=d.v;render()}else if(d.t=='e')toast(d.m)});
+  conn.on('data',d=>{if(d.t=='s'){W=d.v;render()}else if(d.t=='e')toast(d.m);else if(d.t=='c')recv(d.m)});
   conn.on('close',()=>toast('Mất kết nối với chủ phòng'))});
  peer.on('error',e=>msg(e.type=='peer-unavailable'?'Không tìm thấy phòng này.':'Lỗi mạng: '+e.type))}
 function push(){if(mode=='host'&&conn&&conn.open)conn.send({t:'s',v:view(G,1)});W=G;render()}
@@ -193,6 +219,35 @@ function send(a){cs=tp1=null;if(a.t=='move'||a.t=='surr')sel=null;
  if(a.t=='play'){const p=W.b[a.tg];sel=p&&p.sd==me?a.u??a.tg:null}
  if(mode=='guest'){conn.send({t:'a',a});return render()}
  const r=act(G,me,a);if(r)toast(r);else if(mode=='local'&&a.t=='move')cover=true;push()}
+/* ===== Chat & lệnh: tin thường gửi cho đối thủ qua conn; tin bắt đầu bằng "/" là lệnh, chỉ chạy trên máy mình, không gửi đi ===== */
+const keepX=(e,h)=>{const x=e.scrollLeft;e.innerHTML=h;e.scrollLeft=x};
+function addChat(who,t,k){const l=$('cl'),d=document.createElement('div');d.className='cm '+k;
+ if(who){const b=document.createElement('b');b.textContent=who+': ';d.append(b)}
+ d.append(t);l.append(d);while(l.children.length>100)l.firstChild.remove();l.scrollTop=l.scrollHeight}
+const sys=t=>addChat('',t,'sy');
+function recv(m){const t=String(m).trim().slice(0,200);if(!t)return;addChat('Đối thủ',t,'op');toast('💬 '+t.slice(0,60))}
+const CMD=new Map([
+ ['help',()=>{sys('Lệnh (chỉ mình bạn thấy, không gửi cho đối thủ):');sys('/skibidi_laydo — đổi 1 thẻ trên tay thành 1 lá bài đỏ (Lv5) chọn từ danh sách');sys('/help — xem lại danh sách lệnh')}],
+ ['skibidi_laydo',()=>{if(!W)return sys('Ván chưa sẵn sàng.');if(cover||W.win!=null)return sys('Không dùng được lệnh lúc này.');
+  if(!W.hands[me].length)return sys('Bạn chưa có thẻ nào để đổi.');openAdm()}]]);
+function sendChat(){const i=$('ci'),t=i.value.trim().slice(0,200);if(!t)return;i.value='';
+ if(t[0]=='/'){const f=CMD.get(t.slice(1).split(/\s+/)[0].toLowerCase());return f?f():sys('Lệnh không tồn tại. Gõ /help để xem danh sách lệnh.')}
+ if(mode!='local'){if(!(conn&&conn.open))return sys('Chưa kết nối với đối thủ, tin nhắn chưa được gửi.');conn.send({t:'c',m:t})}
+ addChat(mode=='local'?SN[W?W.turn:0]:'Bạn',t,'me')}
+let ad={ci:null,id:null};
+const cdh=(id,fn)=>{const c=DB[id];return`<div class="cd l${c.lv}" data-k="${c.k}" data-id="${id}" onclick="${fn}"><b class="nm">${c.name}</b><br><small>${KL[c.k]} · Lv${c.lv}</small><p>${c.d}</p></div>`};
+function openAdm(){ad={ci:null,id:null};
+ $('ah').innerHTML=W.hands[me].map((id,i)=>cdh(id,`admH(${i})`)).join('');
+ $('al').innerHTML=BYLV[4].map(c=>cdh(c.id,`admR(${c.id})`)).join('');
+ admF('*');admU();$('adm').hidden=false;$('ah').scrollLeft=$('al').scrollTop=0}
+const closeAdm=()=>{$('adm').hidden=true};
+function admH(i){ad.ci=i;[...$('ah').children].forEach((e,j)=>e.classList.toggle('on',j==i));admU()}
+function admR(id){ad.id=id;[...$('al').children].forEach(e=>e.classList.toggle('on',+e.dataset.id==id));admU()}
+function admF(k){[...$('af').children].forEach(b=>b.classList.toggle('g',b.dataset.k!=k));[...$('al').children].forEach(e=>e.hidden=k!='*'&&e.dataset.k!=k)}
+function admU(){const h=ad.ci!=null?DB[W.hands[me][ad.ci]]:null,r=ad.id!=null?DB[ad.id]:null;
+ $('as').textContent=h&&r?`${h.name} → ${r.name}`:h?'Chọn 1 bài đỏ muốn nhận':'Chọn 1 thẻ trên tay để đổi';$('aok').disabled=!(h&&r)}
+function admOK(){if(ad.ci==null||ad.id==null)return;const h=DB[W.hands[me][ad.ci]],r=DB[ad.id];send({t:'swap',ci:ad.ci,id:ad.id});closeAdm();sys(`Đã đổi ${h.name} → ${r.name}.`)}
+document.addEventListener('keydown',e=>{if(e.key=='Escape')closeAdm()});
 /* ===== Giao diện ===== */
 const pc=p=>`<div class="pc"><span class="g${p.sd} s${p.sd}">${GL[p.t]}\uFE0E</span><i class="hb"><b style="width:${Math.max(0,p.hp/mx(p)*100)}%"></b></i><small>${p.hp}${p.sh?'+'+p.sh:''}</small></div>`;
 function clk(i){const g=W;if(cover)return;const my=g.turn==me&&g.win==null;
@@ -228,9 +283,9 @@ function render(){const g=W;if(mode=='local')me=g.turn;const my=g.turn==me&&g.wi
   h+=`<div class="sq ${((i>>3)+(i&7))%2?'dk':'lt'}${i==sel||i==tp1?' sel':''}${l?' m'+l.k:''}${ts.includes(i)?' tg':''}${p&&p.inv?' inv':''}${p&&p.stun?' stn':''}" data-i="${i}" onclick="clk(${i})">${p?pc(p):''}</div>`}
  $('bd').innerHTML=h;fx(g);
  $('top').innerHTML=`Vòng ${g.round} · Lượt <b>${SN[g.turn]}</b>${g.turn==me&&mode!='local'?' (bạn)':''} · ⚡ ${g.en[me]} năng lượng · Kỹ năng chủ động: ${g.sk?'đã dùng':'còn 1'}`;
- $('oc').innerHTML=cover?'':`<span>Bài đối thủ:</span>`+g.hands[1-me].map(()=>'<i class="cb"></i>').join('')+(g.hands[1-me].length?'':' trống');
- $('hand').innerHTML=hand.map((id,i)=>{const c=DB[id],cost=c.k!='A'&&!c.brk&&g.pd[me].includes(id)?0:c.cost;return`<div class="cd l${c.lv}${i==cs?' on':''}${c.k=='A'&&g.sk?' dis':''}" onclick="pick(${i})"><b class="co">${cost}</b><b class="nm">${c.name}</b><br><small>${KL[c.k]} · Lv${c.lv}</small><p>${c.d}</p></div>`}).join('');
- $('bDraw').disabled=!(my&&!g.drew&&hand.length<7);
+ keepX($('oc'),cover?'':`<span>Bài đối thủ:</span>`+g.hands[1-me].map(()=>'<i class="cb"></i>').join('')+(g.hands[1-me].length?'':' trống'));
+ keepX($('hand'),hand.map((id,i)=>{const c=DB[id],cost=c.k!='A'&&!c.brk&&g.pd[me].includes(id)?0:c.cost;return`<div class="cd l${c.lv}${i==cs?' on':''}${c.k=='A'&&g.sk?' dis':''}" onclick="pick(${i})"><b class="co">${cost}</b><b class="nm">${c.name}</b><br><small>${KL[c.k]} · Lv${c.lv}</small><p>${c.d}</p></div>`}).join(''));
+ $('bDraw').disabled=!(my&&!g.drew);if(cover||g.win!=null)closeAdm();
  const pn=$('info');pn.hidden=!mine;if(mine)pn.innerHTML=panel(q,my);
  const cv=$('cv');cv.hidden=!(cover||g.win!=null);
  if(g.win!=null)cv.innerHTML=`<div>${SN[g.win]} thắng!</div><button onclick="location.reload()">Về menu</button>`;

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Cờ vua maibell</title>
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js" onerror="var s=document.createElement('script');s.src='https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';document.head.appendChild(s)"></script>
 <style>
 :root{--bg:#0e1a24;--pn:#17283a;--tx:#e9eef5;--mu:#8fa3b8;--ac:#e8b04a;--l1:#9aa4b2;--l2:#7cc8ff;--l3:#b57bff;--l4:#ffd84a;--l5:#ff4d4d;--t1:#9aa4b22e;--t2:#7cc8ff33;--t3:#b57bff38;--t4:#ffd84a33;--t5:#ff4d4d38}
 *{box-sizing:border-box}[hidden]{display:none!important}
@@ -227,25 +227,56 @@ const show=id=>{$('menu').hidden=id!='menu';$('game').hidden=id!='game';if(id=='
 function toast(t){const e=$('toast');e.textContent=t;e.style.opacity=1;clearTimeout(toast.h);toast.h=setTimeout(()=>e.style.opacity=0,2200)}
 function mkCode(){const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let c='';for(let i=0;i<5;i++)c+=A[R()*A.length|0];return c}
 function local(){mode='local';G=newGame();W=G;cover=true;show('game');render()}
-function host(){if(typeof Peer=='undefined')return msg('Không tải được thư viện mạng (cần Internet).');
- const b=$('bHost'),code=mkCode();b.disabled=true;conn=null;if(peer)peer.destroy();msg('Đang tạo phòng...');peer=new Peer('maibell-'+code);
- peer.on('open',()=>{b.disabled=false;$('code').textContent=code;msg('Gửi mã cho bạn bè và chờ đối thủ vào phòng...')});
- peer.on('error',e=>{if(e.type=='unavailable-id')return host();b.disabled=false;msg('Lỗi mạng: '+e.type)});
- peer.on('connection',c=>{if(conn)return c.close();conn=c;
-  c.on('open',()=>{mode='host';me=0;G=newGame();show('game');push()});
-  c.on('data',d=>{if(d.t=='a'){const r=act(G,1,d.a);if(r)c.send({t:'e',m:r});push()}else if(d.t=='c')recv(d.m)});
-  c.on('close',()=>toast('Đối thủ đã rời phòng'))})}
-function join(){if(typeof Peer=='undefined')return msg('Không tải được thư viện mạng (cần Internet).');
- const code=$('inp').value.trim().toUpperCase();if(!code)return msg('Hãy nhập mã phòng.');msg('Đang kết nối...');peer=new Peer();
- peer.on('open',()=>{conn=peer.connect('maibell-'+code,{reliable:true});
-  conn.on('open',()=>{mode='guest';me=1;show('game')});
-  conn.on('data',d=>{if(d.t=='s'){W=d.v;render()}else if(d.t=='e')toast(d.m);else if(d.t=='c')recv(d.m)});
-  conn.on('close',()=>toast('Mất kết nối với chủ phòng'))});
- peer.on('error',e=>msg(e.type=='peer-unavailable'?'Không tìm thấy phòng này.':'Lỗi mạng: '+e.type))}
+/* Cấu hình ICE: nhiều STUN + nhiều TURN (cổng 3478/80/443, UDP/TCP/TLS) để qua được 4G/CGNAT/wifi công ty, không cần chung router.
+   Muốn chắc nhất: đăng ký miễn phí ở metered.ca, dán "tên app" và "API key" vào 2 biến dưới đây. */
+const METERED_APP='',METERED_KEY='';
+const ICE=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302','stun:stun2.l.google.com:19302','stun:global.stun.twilio.com:3478']},
+ {urls:['turn:eu-0.turn.peerjs.com:3478','turn:us-0.turn.peerjs.com:3478'],username:'peerjs',credential:'peerjsp'},
+ {urls:['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:443','turn:openrelay.metered.ca:443?transport=tcp','turns:openrelay.metered.ca:443?transport=tcp'],username:'openrelayproject',credential:'openrelayproject'}];
+async function popts(){let s=ICE;if(METERED_APP&&METERED_KEY)try{const r=await fetch(`https://${METERED_APP}.metered.live/api/v1/turn/credentials?apiKey=${METERED_KEY}`),j=await r.json();if(Array.isArray(j)&&j.length)s=j.concat(ICE)}catch(e){}
+ return{debug:0,config:{iceServers:s,iceCandidatePoolSize:4}}}
+const NERR={'peer-unavailable':'Không tìm thấy phòng này (kiểm tra lại mã, chủ phòng phải đang mở game).','network':'Mất kết nối tới máy chủ định danh. Kiểm tra Internet/4G rồi thử lại.','server-error':'Máy chủ định danh đang bận, thử lại sau ít giây.','socket-error':'Lỗi đường truyền tới máy chủ định danh, thử lại.','socket-closed':'Đường truyền bị ngắt, thử lại.','webrtc':'Không thiết lập được kết nối trực tiếp, thử lại.','browser-incompatible':'Trình duyệt này không hỗ trợ chơi online.'};
+const nerr=e=>NERR[e.type]||'Lỗi mạng: '+e.type;
+let gk=null,lastRx=0,hb=0;
+async function linkInfo(c){try{const st=await c.peerConnection.getStats();let pr=null,m={};st.forEach(r=>{m[r.id]=r;if(r.type=='candidate-pair'&&(r.selected||(r.nominated&&r.state=='succeeded')))pr=r});
+ if(!pr)return;const t=[m[pr.localCandidateId],m[pr.remoteCandidateId]].map(x=>x&&x.candidateType);
+ toast(t.includes('relay')?'🌐 Đã kết nối qua Internet (máy chủ trung chuyển)':'🔗 Đã kết nối trực tiếp')}catch(e){}}
+setInterval(()=>{if(!(conn&&conn.open))return;try{conn.send({t:'p'})}catch(e){}
+ if(lastRx&&Date.now()-lastRx>30000){if(!hb)toast('⚠️ Mạng không ổn định, đang chờ kết nối lại...');hb=1}else hb=0},8000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)rc()});addEventListener('online',()=>rc());
+function rc(){if(peer&&!peer.destroyed&&peer.disconnected)try{peer.reconnect()}catch(e){}}
+async function host(){if(typeof Peer=='undefined')return msg('Không tải được thư viện mạng (cần Internet).');
+ const b=$('bHost'),code=mkCode();b.disabled=true;conn=null;gk=null;G=null;mode=null;if(peer)peer.destroy();msg('Đang tạo phòng...');
+ const o=await popts();peer=new Peer('maibell-'+code,o);const p=peer;
+ const tm=setTimeout(()=>{if(p===peer&&!p.open){b.disabled=false;msg('Quá thời gian chờ máy chủ định danh. Kiểm tra mạng rồi bấm tạo phòng lại.');p.destroy()}},15000);
+ p.on('open',()=>{clearTimeout(tm);b.disabled=false;$('code').textContent=code;msg('Gửi mã cho bạn bè và chờ đối thủ vào phòng...')});
+ p.on('disconnected',()=>{if(p===peer&&!p.destroyed)setTimeout(rc,1500)});
+ p.on('error',e=>{if(e.type=='unavailable-id'){clearTimeout(tm);return host()}b.disabled=false;msg(nerr(e))});
+ p.on('connection',c=>{const k=c.metadata&&c.metadata.k,old=conn&&conn.open;
+  if(old&&k!==gk)return c.close();
+  if(old)try{conn.close()}catch(e){}
+  conn=c;gk=k;
+  c.on('open',()=>{if(conn!==c)return;if(mode!='host'||!G){mode='host';me=0;G=newGame()}show('game');push();setTimeout(()=>linkInfo(c),800)});
+  c.on('data',d=>{lastRx=Date.now();if(d.t=='a'){const r=act(G,1,d.a);if(r)c.send({t:'e',m:r});push()}else if(d.t=='c')recv(d.m)});
+  c.on('close',()=>{if(conn===c){conn=null;toast('Đối thủ đã rời phòng (có thể vào lại bằng cùng mã)')}})})}
+async function join(){if(typeof Peer=='undefined')return msg('Không tải được thư viện mạng (cần Internet).');
+ const code=$('inp').value.trim().toUpperCase();if(!code)return msg('Hãy nhập mã phòng.');
+ msg('Đang kết nối...');conn=null;mode=null;if(peer)peer.destroy();
+ const o=await popts();peer=new Peer(o);const p=peer,tok=Math.random().toString(36).slice(2);let rt=0,first=1;
+ const tm=setTimeout(()=>{if(p===peer&&!(conn&&conn.open)){msg('Không kết nối được tới phòng (quá thời gian). Kiểm tra mạng của cả hai bên rồi thử lại.');p.destroy()}},25000);
+ const link=()=>{const c=p.connect('maibell-'+code,{reliable:true,metadata:{k:tok}});conn=c;
+  c.on('open',()=>{clearTimeout(tm);rt=0;mode='guest';me=1;show('game');setTimeout(()=>linkInfo(c),800)});
+  c.on('data',d=>{lastRx=Date.now();if(d.t=='s'){W=d.v;render()}else if(d.t=='e')toast(d.m);else if(d.t=='c')recv(d.m)});
+  c.on('close',()=>{if(conn!==c||p!==peer||p.destroyed)return;
+   if(mode=='guest'&&rt<5){rt++;toast('Mất kết nối, đang thử nối lại ('+rt+'/5)...');setTimeout(()=>{if(p===peer&&!p.destroyed&&conn===c){rc();link()}},2000)}
+   else toast('Mất kết nối với chủ phòng')})};
+ p.on('open',()=>{if(first){first=0;link()}});
+ p.on('disconnected',()=>{if(p===peer&&!p.destroyed)setTimeout(rc,1500)});
+ p.on('error',e=>{clearTimeout(tm);if(mode=='guest')toast(nerr(e));else msg(nerr(e))})}
 function push(){if(mode=='host'&&conn&&conn.open)conn.send({t:'s',v:view(G,1)});W=G;render()}
 function send(a){cs=tp1=null;if(a.t=='move'||a.t=='surr')sel=null;
  if(a.t=='play'){const p=W.b[a.tg];sel=p&&p.sd==me?a.u??a.tg:null}
- if(mode=='guest'){conn.send({t:'a',a});return render()}
+ if(mode=='guest'){if(!(conn&&conn.open))return toast('Đang mất kết nối, thử lại sau giây lát...');conn.send({t:'a',a});return render()}
  const r=act(G,me,a);if(r)toast(r);else if(mode=='local'&&a.t=='move')cover=true;push()}
 /* ===== Chat ===== */
 const keepX=(e,h)=>{const x=e.scrollLeft;e.innerHTML=h;e.scrollLeft=x};

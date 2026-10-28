@@ -84,6 +84,7 @@ input{padding:9px;border-radius:8px;border:1px solid #2f4760;background:var(--pn
 @keyframes fbn{0%{opacity:0;transform:translate(-50%,-10px)}12%,80%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0)}}
 #bnr{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:4;max-width:96%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:#000d;border:2px solid var(--c,#fff);border-radius:20px;padding:4px 12px;font-size:13px;opacity:0;pointer-events:none}#bnr.sh{animation:fbn 2.4s both}
 button.ao{background:#2fa360;color:#fff;border-color:#2fa360}
+#cfg input{text-transform:none;width:min(260px,90%);margin:3px 0}#cfg{margin-top:8px}#cfg small{color:var(--mu);display:block}#dg{white-space:pre-wrap;margin:6px 0}
 </style></head><body>
 <div id="menu">
 <h1>♞ Cờ vua maibell</h1>
@@ -93,6 +94,11 @@ button.ao{background:#2fa360;color:#fff;border-color:#2fa360}
 <div>Mã phòng của bạn: <span id="code">—</span></div>
 <div><input id="inp" maxlength="6" placeholder="Mã phòng"> <button class="g" onclick="join()">Vào phòng</button></div>
 <p id="msg"></p>
+<div><button class="g" onclick="netTest()">Kiểm tra mạng</button></div><div id="dg"></div>
+<details id="cfg"><summary>Cài đặt máy chủ trung chuyển riêng (tuỳ chọn)</summary>
+<small>Mặc định game dùng máy chủ của PeerJS. Chỉ cần điền khi vẫn không vào được phòng khác mạng: đăng ký miễn phí tại metered.ca (Open Relay), dán "tên app" và "API key" rồi bấm Lưu. Mỗi máy lưu riêng.</small>
+<input id="tApp" placeholder="Tên app (vd: abc123)" autocomplete="off"><br><input id="tKey" placeholder="API key" autocomplete="off"><br>
+<button class="g" onclick="saveTurn()">Lưu</button></details>
 <details><summary>Luật chơi</summary><ul>
 <li>Đi quân như cờ vua. Đi vào ô có địch = tấn công: trừ máu, quân chỉ ngã xuống khi HP về 0 (hạ được mới chiếm ô). Không có chiếu, thắng khi hạ Vua.</li>
 <li>Mỗi lượt bạn di chuyển (hoặc tấn công) bằng 1 quân. Di chuyển xong là kết thúc lượt. Trước khi đi, bạn có thể bốc 1 thẻ (nút cạnh bài đối thủ) và dùng thẻ.</li>
@@ -227,15 +233,34 @@ const show=id=>{$('menu').hidden=id!='menu';$('game').hidden=id!='game';if(id=='
 function toast(t){const e=$('toast');e.textContent=t;e.style.opacity=1;clearTimeout(toast.h);toast.h=setTimeout(()=>e.style.opacity=0,2200)}
 function mkCode(){const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let c='';for(let i=0;i<5;i++)c+=A[R()*A.length|0];return c}
 function local(){mode='local';G=newGame();W=G;cover=true;show('game');render()}
-/* Cấu hình ICE: nhiều STUN + nhiều TURN (cổng 3478/80/443, UDP/TCP/TLS) để qua được 4G/CGNAT/wifi công ty, không cần chung router.
-   Muốn chắc nhất: đăng ký miễn phí ở metered.ca, dán "tên app" và "API key" vào 2 biến dưới đây. */
-const METERED_APP='',METERED_KEY='';
-const ICE=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302','stun:stun2.l.google.com:19302','stun:global.stun.twilio.com:3478']},
- {urls:['turn:eu-0.turn.peerjs.com:3478','turn:us-0.turn.peerjs.com:3478'],username:'peerjs',credential:'peerjsp'},
- {urls:['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:443','turn:openrelay.metered.ca:443?transport=tcp','turns:openrelay.metered.ca:443?transport=tcp'],username:'openrelayproject',credential:'openrelayproject'}];
-async function popts(){let s=ICE;if(METERED_APP&&METERED_KEY)try{const r=await fetch(`https://${METERED_APP}.metered.live/api/v1/turn/credentials?apiKey=${METERED_KEY}`),j=await r.json();if(Array.isArray(j)&&j.length)s=j.concat(ICE)}catch(e){}
- return{debug:0,config:{iceServers:s,iceCandidatePoolSize:4}}}
-const NERR={'peer-unavailable':'Không tìm thấy phòng này (kiểm tra lại mã, chủ phòng phải đang mở game).','network':'Mất kết nối tới máy chủ định danh. Kiểm tra Internet/4G rồi thử lại.','server-error':'Máy chủ định danh đang bận, thử lại sau ít giây.','socket-error':'Lỗi đường truyền tới máy chủ định danh, thử lại.','socket-closed':'Đường truyền bị ngắt, thử lại.','webrtc':'Không thiết lập được kết nối trực tiếp, thử lại.','browser-incompatible':'Trình duyệt này không hỗ trợ chơi online.'};
+/* Mặc định: KHÔNG truyền cấu hình ICE, để PeerJS dùng cấu hình sẵn có của nó (STUN + TURN riêng của PeerJS) - đúng như bản cũ đã chạy được khác Wi-Fi.
+   Chỉ khi người chơi tự điền tên app + API key của Metered (tuỳ chọn, ô Cài đặt trong menu) thì mới thêm TURN đó vào danh sách mặc định. */
+let METERED_APP='',METERED_KEY='';
+try{METERED_APP=localStorage.getItem('mb_app')||'';METERED_KEY=localStorage.getItem('mb_key')||''}catch(e){}
+const DEF=[{urls:'stun:stun.l.google.com:19302'},{urls:['turn:eu-0.turn.peerjs.com:3478','turn:us-0.turn.peerjs.com:3478'],username:'peerjs',credential:'peerjsp'}];
+let TS='none',ICEC=null,TD=0; /* TS: none = dùng mặc định PeerJS, ok = có thêm TURN Metered, fail = điền Metered nhưng không lấy được */
+function saveTurn(){const a=$('tApp').value.trim().replace(/^https?:\/\//,'').replace(/\.metered\.live.*$/,''),k=$('tKey').value.trim();
+ try{localStorage.setItem('mb_app',a);localStorage.setItem('mb_key',k)}catch(e){}
+ METERED_APP=a;METERED_KEY=k;ICEC=null;TD=0;msg(a&&k?'Đã lưu. Bấm "Kiểm tra mạng" để thử.':'Đã xoá cấu hình, dùng lại mặc định của PeerJS.')}
+async function popts(){
+ if(!TD){TD=1;ICEC=null;TS='none';
+  if(METERED_APP&&METERED_KEY){TS='fail';
+   try{const r=await Promise.race([fetch(`https://${METERED_APP}.metered.live/api/v1/turn/credentials?apiKey=${METERED_KEY}`),new Promise((_,j)=>setTimeout(j,7000))]);
+    const j=r.ok?await r.json():null;if(Array.isArray(j)&&j.length){ICEC=DEF.concat(j);TS='ok'}}catch(e){}}}
+ return ICEC?{config:{iceServers:ICEC}}:{}}
+setTimeout(()=>{try{$('tApp').value=METERED_APP;$('tKey').value=METERED_KEY}catch(e){}},0);
+const TSM={none:'',fail:'Không lấy được TURN từ Metered (sai tên app/API key hoặc mất mạng) - đang dùng mặc định của PeerJS.',ok:''};
+/* Kiểm tra: gom ICE candidate để biết STUN (srflx) và TURN (relay) có hoạt động không (dùng đúng danh sách ICE mà game sẽ dùng) */
+async function netTest(){const d=$('dg');d.textContent='Đang kiểm tra (tối đa 10 giây)...';TD=0;
+ try{const o=await popts(),pc=new RTCPeerConnection({iceServers:o.config?o.config.iceServers:DEF}),T={};pc.createDataChannel('x');
+  pc.onicecandidate=e=>{if(e.candidate){const m=/ typ (\w+)/.exec(e.candidate.candidate);if(m)T[m[1]]=1}};
+  await pc.setLocalDescription(await pc.createOffer());
+  await new Promise(r=>{const t=setTimeout(r,10000);pc.onicegatheringstatechange=()=>{if(pc.iceGatheringState=='complete'){clearTimeout(t);r()}}});pc.close();
+  const L=['Đường ra Internet (STUN): '+(T.srflx?'OK':'KHÔNG ra được - mạng/trình duyệt có thể đang chặn STUN'),
+   'Máy chủ trung chuyển (TURN): '+(T.relay?'OK':'KHÔNG HOẠT ĐỘNG')+(TSM[TS]?' - '+TSM[TS]:'')];
+  if(T.srflx&&T.relay)L.push('=> Có thể chơi khác Wi-Fi/4G.');else if(!T.relay)L.push('=> TURN không chạy: khác mạng có thể không vào được. Thử điền TURN riêng (Metered) ở ô Cài đặt.');
+  d.textContent=L.join('\n')}catch(e){d.textContent='Không chạy được phép kiểm tra: '+e}}
+const NERR={'peer-unavailable':'Không tìm thấy phòng này (kiểm tra lại mã, chủ phòng phải đang mở game).','network':'Mất kết nối tới máy chủ định danh. Kiểm tra Internet/4G rồi thử lại.','server-error':'Máy chủ định danh đang bận, thử lại sau ít giây.','socket-error':'Lỗi đường truyền tới máy chủ định danh, thử lại.','socket-closed':'Đường truyền bị ngắt, thử lại.','negotiation-failed':'Không nối được trực tiếp giữa 2 mạng.','webrtc':'Không thiết lập được kết nối trực tiếp, thử lại.','browser-incompatible':'Trình duyệt này không hỗ trợ chơi online.'};
 const nerr=e=>NERR[e.type]||'Lỗi mạng: '+e.type;
 let gk=null,lastRx=0,hb=0;
 async function linkInfo(c){try{const st=await c.peerConnection.getStats();let pr=null,m={};st.forEach(r=>{m[r.id]=r;if(r.type=='candidate-pair'&&(r.selected||(r.nominated&&r.state=='succeeded')))pr=r});
@@ -248,7 +273,7 @@ function rc(){if(peer&&!peer.destroyed&&peer.disconnected)try{peer.reconnect()}c
 async function host(){if(typeof Peer=='undefined')return msg('Không tải được thư viện mạng (cần Internet).');
  const b=$('bHost'),code=mkCode();b.disabled=true;conn=null;gk=null;G=null;mode=null;if(peer)peer.destroy();msg('Đang tạo phòng...');
  const o=await popts();peer=new Peer('maibell-'+code,o);const p=peer;
- const tm=setTimeout(()=>{if(p===peer&&!p.open){b.disabled=false;msg('Quá thời gian chờ máy chủ định danh. Kiểm tra mạng rồi bấm tạo phòng lại.');p.destroy()}},15000);
+ const tm=setTimeout(()=>{if(p===peer&&!p.open){b.disabled=false;msg('Quá thời gian chờ máy chủ định danh. Kiểm tra mạng rồi bấm tạo phòng lại.');p.destroy()}},30000);
  p.on('open',()=>{clearTimeout(tm);b.disabled=false;$('code').textContent=code;msg('Gửi mã cho bạn bè và chờ đối thủ vào phòng...')});
  p.on('disconnected',()=>{if(p===peer&&!p.destroyed)setTimeout(rc,1500)});
  p.on('error',e=>{if(e.type=='unavailable-id'){clearTimeout(tm);return host()}b.disabled=false;msg(nerr(e))});
@@ -258,13 +283,15 @@ async function host(){if(typeof Peer=='undefined')return msg('Không tải đư�
   conn=c;gk=k;
   c.on('open',()=>{if(conn!==c)return;if(mode!='host'||!G){mode='host';me=0;G=newGame()}show('game');push();setTimeout(()=>linkInfo(c),800)});
   c.on('data',d=>{lastRx=Date.now();if(d.t=='a'){const r=act(G,1,d.a);if(r)c.send({t:'e',m:r});push()}else if(d.t=='c')recv(d.m)});
+  c.on('error',e=>{if(conn===c)toast(e&&e.type=='negotiation-failed'?'Khách không nối được (khác mạng cần TURN, bấm Kiểm tra mạng)':nerr(e||{}))});
   c.on('close',()=>{if(conn===c){conn=null;toast('Đối thủ đã rời phòng (có thể vào lại bằng cùng mã)')}})})}
 async function join(){if(typeof Peer=='undefined')return msg('Không tải được thư viện mạng (cần Internet).');
  const code=$('inp').value.trim().toUpperCase();if(!code)return msg('Hãy nhập mã phòng.');
  msg('Đang kết nối...');conn=null;mode=null;if(peer)peer.destroy();
  const o=await popts();peer=new Peer(o);const p=peer,tok=Math.random().toString(36).slice(2);let rt=0,first=1;
- const tm=setTimeout(()=>{if(p===peer&&!(conn&&conn.open)){msg('Không kết nối được tới phòng (quá thời gian). Kiểm tra mạng của cả hai bên rồi thử lại.');p.destroy()}},25000);
+ const tm=setTimeout(()=>{if(p===peer&&!(conn&&conn.open))msg('Chưa kết nối được tới phòng sau 45 giây (vẫn đang thử). Kiểm tra mạng của cả hai bên, bấm "Kiểm tra mạng" để biết nguyên nhân.')},45000);
  const link=()=>{const c=p.connect('maibell-'+code,{reliable:true,metadata:{k:tok}});conn=c;
+  c.on('error',e=>{if(conn!==c)return;clearTimeout(tm);const m=e&&e.type=='negotiation-failed'?'Không thiết lập được kết nối giữa 2 mạng. Thử lại, hoặc bấm "Kiểm tra mạng".':nerr(e||{});mode=='guest'?toast(m):msg(m)});
   c.on('open',()=>{clearTimeout(tm);rt=0;mode='guest';me=1;show('game');setTimeout(()=>linkInfo(c),800)});
   c.on('data',d=>{lastRx=Date.now();if(d.t=='s'){W=d.v;render()}else if(d.t=='e')toast(d.m);else if(d.t=='c')recv(d.m)});
   c.on('close',()=>{if(conn!==c||p!==peer||p.destroyed)return;

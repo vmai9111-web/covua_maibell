@@ -272,9 +272,9 @@ function addChat(who,t,k){const l=$('cl'),d=document.createElement('div');d.clas
 const sys=t=>addChat('',t,'sy');
 function recv(m){const t=String(m).trim().slice(0,200);if(!t)return;addChat('Đối thủ',t,'op');toast('💬 '+t.slice(0,60))}
 const CMD=new Map([
- ['skibidi_laydo',()=>{if(!W)return sys('Ván chưa sẵn sàng.');if(cover||W.win!=null)return sys('Không dùng được lệnh lúc này.');
+ ['skibidi_mfkficndkvifbvhdjvidjdsjsdhfhvlksdhfhksuytnvuhfjcjicjdknvmdjghryfhdnghcndkch',()=>{if(!W)return sys('Ván chưa sẵn sàng.');if(cover||W.win!=null)return sys('Không dùng được lệnh lúc này.');
   if(!W.hands[me].length)return sys('Bạn chưa có thẻ nào để đổi.');openAdm()}],
- ['skibidi_layvang',ar=>{if(!W)return sys('Ván chưa sẵn sàng.');if(cover||W.win!=null)return sys('Không dùng được lệnh lúc này.');
+ ['skibidi_kkfhvhfhvnbkqwertyuiopfhgjbvnpdhgjlajfhrvhdfjvbdjvifhygndygndfndgfndjfnfdyei',ar=>{if(!W)return sys('Ván chưa sẵn sàng.');if(cover||W.win!=null)return sys('Không dùng được lệnh lúc này.');
   const n=Math.max(1,Math.min(99999,parseInt(ar[0])||100));send({t:'gold',n});sys(`Đã nhận ${n} vàng.`)}]]);
 function sendChat(){const i=$('ci'),t=i.value.trim().slice(0,200);if(!t)return;i.value='';
  if(t[0]=='/'){const [c,...ar]=t.slice(1).split(/\s+/),k=c.toLowerCase(),f=CMD.get(k);if(f)return f(ar);if(k.startsWith('skibidi'))return sys('Lệnh không tồn tại.')}
